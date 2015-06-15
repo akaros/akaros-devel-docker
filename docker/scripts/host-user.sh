@@ -12,7 +12,7 @@
 : ${USER:=${USER}}
 : ${GROUP:=${GROUP}}
 : ${UID:=${UID}}
-: ${GID:=$(stat -c "%g" /home/${USER})}
+: ${GID:=${GID}}
 if [ ! -d "/home/${USER}" ]; then
 	ADDHOME="-m"
 fi
