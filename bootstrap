@@ -1,0 +1,57 @@
+#! /usr/bin/env bash
+
+# Copyright (c) 2015 The Akaros Authors
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version. See LICENSE for details.
+#
+# Kevin Klues <klueska@gmail.com>
+
+: ${DOCKER_IMAGEBASE:=klueska/akaros-devel}
+: ${DOCKER_IMAGETAG:=stable}
+
+# Only allow a single tag argument
+if [ "$#" -gt 1 ]; then
+	echo "Usage: ${0} <tag>"
+	echo "    Bootstrap our environment based on the docker image for"
+	echo "    ${DOCKER_IMAGEBASE}:<tag>. If no <tag> is specified, use"
+	echo "    '${DOCKER_IMAGETAG}' as default."
+	exit 1
+fi
+
+# Set up some variables
+dockertag=${DOCKER_IMAGETAG}
+if [ "$#" -eq 1 ]; then
+	dockertag=$1
+fi
+dockerimg="${DOCKER_IMAGEBASE}:${dockertag}"
+currdir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+envmap="-e USER=$(stat -c "%U" ${currdir}) \
+        -e GROUP=$(stat -c "%G" ${currdir}) \
+        -e UID=$(stat -c "%u" ${currdir}) \
+        -e GID=$(stat -c "%g" ${currdir})"
+
+# If ./home already exists, don't do anything. Print out that the user must
+# manually remove this directory if they want to bootstrap everything again.
+if [ -d ${currdir}/home ]; then
+	echo "Warning! Trying to bootstrap with existing 'home' directory."
+	echo "You must manually remove this directory if you would like to"
+	echo "bootstrap everything again."
+	exit 1
+fi
+
+# Copy the home directory from the cononical 'nanwan' user in the docker image
+# into a directory called home in the current directory.  From here on, when
+# you launch the docker image, this folder will be mapped in as your home
+# directory.
+docker run -v ${currdir}:/akaros ${envmap} -t ${dockerimg} \
+           /bin/bash -c "/bin/akaros-devel-user-setup.sh && \
+                         sudo /bin/cp -r /home/nanwan /akaros/home &&
+                         sudo chown -R \${USER}:\${GROUP} /akaros/home"
+
+# Cleanup after ourselves
+containers=$(docker ps | grep ${DOCKER_IMAGEBASE} | cut -f1 -d " ")
+if [ "${containers}" != "" ]; then
+	docker rm -f ${containers} > /dev/null
+fi

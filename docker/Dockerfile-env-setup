@@ -1,0 +1,85 @@
+# Copyright (c) 2015 The Akaros Authors
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version. See LICENSE for details.
+#
+# Kevin Klues <klueska@gmail.com>
+
+FROM klueska/akaros-devel:pkg-install
+MAINTAINER Kevin Klues <klueska@gmail.com>
+
+# Set up some variables
+ENV USER="nanwan" 
+ENV HOME="/home/${USER}" 
+ENV ROSROOT="${HOME}/projects/akaros" 
+ENV X86_64_INSTDIR="${HOME}/install/x86_64-akaros-gcc" 
+ENV GOROOT="${HOME}/projects/go-akaros" 
+ENV GOPATH="${HOME}/projects/go-workspace" 
+ENV PATH="${X86_64_INSTDIR}/bin:${PATH}"
+ENV PATH="${GOROOT}/bin:${PATH}" 
+ENV PATH="${GOPATH}/bin:${PATH}" 
+ENV PATH="${GOROOT}/misc/akaros/bin:${PATH}" 
+
+# Create the user
+RUN useradd -r -p '' \
+        -G kvm,tty \
+        -d "/home/${USER}" \
+        -s /bin/bash "${USER}"
+
+# Add this user to the sudoers file
+RUN echo "${USER} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+# Copy in our home directory for the user
+# Unfortunately there is a weird bug with AUFS that forces us to first copy
+# the folder into /tmp, then in a single RUN comand, move it, change its
+# ownership, and delete the temproary folder.
+COPY home /tmp/${USER}
+RUN cp -r /tmp/${USER} ${HOME} && \
+    chown -R ${USER}:${USER} ${HOME} && \
+    rm -rf /tmp/${USER}
+
+# Set the user
+USER ${USER}
+
+# Clone our repos
+RUN cd ${HOME}/projects && \
+    git clone https://github.com/brho/akaros.git && \
+    git clone https://github.com/klueska/go-akaros.git
+
+# Setup akaros and install its cross compiler
+RUN cd ${ROSROOT} && \
+    make ARCH=x86 defconfig && \
+    cd ${ROSROOT}/tools/compilers/gcc-glibc && \
+    X86_64_INSTDIR=${HOME}/install/x86_64-akaros-gcc make x86_64 && \
+    make clean
+
+# Setup busybox and other apps for akaros
+RUN cd ${ROSROOT}/tools/apps/busybox && \
+    make x86_64 && \
+    cd ${ROSROOT} && \
+    make tests && \
+    make fill-kfs && \
+	make clean && \
+	make userclean
+
+# Setup go for akaros
+RUN cd ${GOROOT}/src && \
+    ./akaros.bash make && \
+    cd ${GOROOT}/misc/akaros/bin && \
+    ./go-akaros-9pserver.sh && \
+    cd ${GOROOT}/src && \
+    ./akaros.bash clean
+
+# Set the user back to root
+USER root
+
+# Copy in the the user setup script
+COPY scripts/nanwan-user.sh /bin/akaros-devel-user-setup.sh
+
+# Copy in the actual setup script 
+COPY scripts/akaros-devel-setup.sh /bin/akaros-devel-setup.sh
+
+# Launch the devel script (the user setup script is launched under the hood)
+CMD ["/bin/bash", "/bin/akaros-devel-setup.sh"]
+

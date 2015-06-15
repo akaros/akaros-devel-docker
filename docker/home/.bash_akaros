@@ -1,0 +1,40 @@
+# Copyright (c) 2015 The Akaros Authors
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version. See LICENSE for details.
+#
+# Kevin Klues <klueska@gmail.com>
+
+# Add sbin to path
+PATH="/sbin:$PATH"
+export PATH
+
+# Make vim the default editor!
+export EDITOR=vim
+export VISUAL=vim
+
+# Generic installed program path setup
+export PATH="$HOME/install/bin:$PATH"
+
+# Setup for go
+export GOROOT=$HOME/projects/go-akaros
+export GOPATH=$HOME/projects/go-workspace
+PATH="$GOROOT/bin:$PATH"
+PATH="$GOPATH/bin:$PATH"
+PATH="$GOROOT/misc/akaros/bin:$PATH"
+export PATH
+
+# Setup for Akaros
+export ROSROOT=$HOME/projects/akaros
+export X86_64_INSTDIR="$HOME/install/x86_64-akaros-gcc"
+export RISCV_INSTDIR="$HOME/install/riscv-akaros-gcc"
+PATH="$X86_64_INSTDIR/bin:$PATH"
+PATH="$RISCV_INSTDIR/bin:$PATH"
+export PATH
+
+# Setup for qemu
+export QEMU_MONITOR_TTY=/dev/pts/0
+
+# Some useful aliases
+alias aa="addr2line -e $ROSROOT/obj/kern/akaros-kernel-64b"

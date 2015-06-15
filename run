@@ -1,0 +1,98 @@
+#! /usr/bin/env bash
+
+# Copyright (c) 2015 The Akaros Authors
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version. See LICENSE for details.
+#
+# Kevin Klues <klueska@gmail.com>
+
+: ${DOCKER_IMAGEBASE:=klueska/akaros-devel}
+: ${DOCKER_IMAGETAG:=stable}
+: ${DOCKER_HOSTNAME:=akaros-devel}
+: ${DOCKER_HOSTSSHPORT:=4405}
+
+# Allow someone to pass the -i flag to force an interactive session
+OPT_INTERACTIVE=
+while getopts :i opt; do
+  case $opt in
+    i)
+      OPT_INTERACTIVE=true
+      shift $((OPTIND-1))
+      ;;
+  esac
+done;
+
+# Other than the -i option, only allow a single tag argument
+if [ "$#" -gt 1 ]; then
+	echo "Usage: ${0} <tag>"
+	echo "    Run the docker image for ${DOCKER_IMAGEBASE}:<tag>"
+	echo "    If no <tag> is specified, use '${DOCKER_IMAGETAG}' as default."
+	echo "    You can pass -i to force an interactive session, otherwise the image"
+	echo "    will be launched with its default command."
+	exit 1
+fi
+
+# Set up the variables needed to do the actual docker run
+# We set USER,GROUP,UID,GID to match the user/group that owns ${currdir}/home
+# A user with these credentials will be created inside the docker image upon
+# launch and your home directory will be mapped in so you can work from it.
+# If no ${currdir}/home directory exists, then we will still start up as our
+# user, but no directory will be mapped in for our home directory.
+hostname=${DOCKER_HOSTNAME}
+dockertag=${DOCKER_IMAGETAG}
+if [ "$#" -eq 1 ]; then
+	dockertag=$1
+fi
+dockerimage=${DOCKER_IMAGEBASE}:${dockertag}
+currdir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+if [ -d ${currdir}/home ]; then 
+	hosthome=${currdir}/home
+	dirmap="-v ${hosthome}:/home/${USER}"
+else
+	hosthome=${currdir}
+fi
+envmap="-e USER=$(stat -c "%U" ${hosthome}) \
+        -e GROUP=$(stat -c "%G" ${hosthome}) \
+        -e UID=$(stat -c "%u" ${hosthome}) \
+        -e GID=$(stat -c "%g" ${hosthome})"
+portmap="-p ${DOCKER_HOSTSSHPORT}:22"
+
+print_ssh_config() {
+local dir=${currdir}
+[[ "$dir" =~ ^"${HOME}"(/|$) ]] && dir="~${dir#${HOME}}"
+cat << EOF
+You can connect with the following settings, which
+you should probably add to your .ssh/config file:
+
+	Host akaros-devel
+	    Hostname localhost
+	    Port 4405
+	    IdentityFile ${dir}/docker/home/.ssh/id_rsa
+	    StrictHostKeyChecking no
+	    UserKnownHostsFile /dev/null
+
+With these settings you can simply run the following to connect:
+	ssh ${USER}@akaros-devel
+EOF
+}
+
+# If the docker container is already started, kill the existing one.
+running=$(docker ps | grep ${dockerimage})
+if [ "${running}" != "" ]; then
+	docker rm -f $(echo ${running} | cut -f1 -d " ") > /dev/null
+fi
+
+# Start the docker container.
+dockerops="--privileged -h ${hostname} ${envmap} ${dirmap} ${portmap}" 
+if [ ${OPT_INTERACTIVE} ]; then
+	dockerops="${dockerops} -e INTERACTIVE=1 -t -i"
+else
+	echo "Starting ${dockerimage} in the background"
+	dockerops="${dockerops} -d"
+	devnull="> /dev/null"
+	print_ssh_config
+fi
+eval docker run ${dockerops} ${dockerimage} ${devnull}
+
