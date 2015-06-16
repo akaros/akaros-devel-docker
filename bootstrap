@@ -35,9 +35,23 @@ envmap="-e USER=$(stat -c "%U" ${currdir}) \
 # If ./home already exists, don't do anything. Print out that the user must
 # manually remove this directory if they want to bootstrap everything again.
 if [ -d ${currdir}/home ]; then
-	echo "Warning! Trying to bootstrap with existing 'home' directory."
-	echo "You must manually remove this directory if you would like to"
-	echo "bootstrap everything again."
+cat << EOF
+    Warning! Trying to bootstrap with an existing 'home' directory. You
+    must manually remove this directory if you would like to bootstrap
+    everything again.
+    
+    Alternatively, the 'home' directory is kept under version control with
+    the home directory of the canonical 'nanwan' user inside the docker
+    container. If you do a:
+
+        git fetch origin
+        git diff origin/master
+
+    from your home directory within the docker container you will be able
+    to see what changes you've made to the original home directory files.
+    You can then sync manually, or use git itself to help you sync back up
+    if you've accidentally broken something.
+EOF
 	exit 1
 fi
 

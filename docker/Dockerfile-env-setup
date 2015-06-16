@@ -10,20 +10,22 @@ FROM klueska/akaros-devel:pkg-install
 MAINTAINER Kevin Klues <klueska@gmail.com>
 
 # Set up some variables
-ENV USER="nanwan" 
-ENV HOME="/home/${USER}" 
-ENV ROSROOT="${HOME}/projects/akaros" 
-ENV X86_64_INSTDIR="${HOME}/install/x86_64-akaros-gcc" 
-ENV GOROOT="${HOME}/projects/go-akaros" 
-ENV GOPATH="${HOME}/projects/go-workspace" 
+ENV USER="nanwan"
+ENV NAME="Nanwan the Giraffe"
+ENV HOME="/home/${USER}"
+ENV ROSROOT="${HOME}/projects/akaros"
+ENV X86_64_INSTDIR="${HOME}/install/x86_64-akaros-gcc"
+ENV GOROOT="${HOME}/projects/go-akaros"
+ENV GOPATH="${HOME}/projects/go-workspace"
 ENV PATH="${X86_64_INSTDIR}/bin:${PATH}"
-ENV PATH="${GOROOT}/bin:${PATH}" 
-ENV PATH="${GOPATH}/bin:${PATH}" 
-ENV PATH="${GOROOT}/misc/akaros/bin:${PATH}" 
+ENV PATH="${GOROOT}/bin:${PATH}"
+ENV PATH="${GOPATH}/bin:${PATH}"
+ENV PATH="${GOROOT}/misc/akaros/bin:${PATH}"
 
 # Create the user
 RUN useradd -r -p '' \
         -G kvm,tty \
+        -c "${NAME}" \
         -d "/home/${USER}" \
         -s /bin/bash "${USER}"
 
@@ -42,10 +44,32 @@ RUN cp -r /tmp/${USER} ${HOME} && \
 # Set the user
 USER ${USER}
 
+# Put our home directory under version control
+RUN cd ${HOME} && \
+    git init && \
+    find . -name ".exists" | xargs rm -rf && \
+    git remote add origin /home/${USER}
+
 # Clone our repos
 RUN cd ${HOME}/projects && \
     git clone https://github.com/brho/akaros.git && \
-    git clone https://github.com/klueska/go-akaros.git
+    git clone https://github.com/klueska/go-akaros.git && \
+    git submodule add -f https://github.com/brho/akaros.git && \
+    git submodule add -f https://github.com/klueska/go-akaros.git && \
+    cd ${ROSROOT} && \
+    cp .git/hooks/pre-commit.sample .git/hooks/pre-commit && \
+    cd ${GOROOT} && \
+    cp .git/hooks/pre-commit.sample .git/hooks/pre-commit
+
+# Finalize our home directory git repo
+RUN cd ${HOME} && \
+    git add . -f && \
+    git config --global user.email "${USER}@akaros-devel" && \
+    git config --global user.name "${NAME}" && \
+    git commit -m "Initial commit for the home directory" && \
+    rm -rf .gitconfig && \
+    git fetch origin && \
+    git branch -u origin/master
 
 # Setup akaros and install its cross compiler
 RUN cd ${ROSROOT} && \
@@ -77,7 +101,7 @@ USER root
 # Copy in the the user setup script
 COPY scripts/nanwan-user.sh /bin/akaros-devel-user-setup.sh
 
-# Copy in the actual setup script 
+# Copy in the actual setup script
 COPY scripts/akaros-devel-setup.sh /bin/akaros-devel-setup.sh
 
 # Launch the devel script (the user setup script is launched under the hood)
