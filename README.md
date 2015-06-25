@@ -33,7 +33,20 @@ cd akaros-devel-docker
 ./run
 ```
 
-Inside your docker container, the location of your akaros repos is:
+Sometimes this might throw an error if your docker daemon needs to be restarted
+for some reason.  From Ubuntu you can restart it by running:
+```
+sudo restart docker
+```
+
+Once your container has launched successfully, you should should see
+instructions for adding the akaros-devel host to your ```~/.ssh/config``` file.
+After adding these settings, you should be able to ssh into the container as:
+```
+ssh <username>@akaros-devel
+```
+
+Inside your docker container, the location of your akaros kernel repos is:
 ```
 ~/projects/akaros
 ```
