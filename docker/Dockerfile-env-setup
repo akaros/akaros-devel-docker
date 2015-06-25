@@ -75,13 +75,14 @@ RUN cd ${HOME} && \
 RUN cd ${ROSROOT} && \
     make ARCH=x86 defconfig && \
     cd ${ROSROOT}/tools/compilers/gcc-glibc && \
-    X86_64_INSTDIR=${HOME}/install/x86_64-akaros-gcc make x86_64 && \
+    make x86_64 && \
     make clean
 
 # Setup busybox and other apps for akaros
 RUN cd ${ROSROOT}/tools/apps/busybox && \
     make x86_64 && \
     cd ${ROSROOT} && \
+    make install-libs && \
     make tests && \
     make fill-kfs && \
 	make clean && \
