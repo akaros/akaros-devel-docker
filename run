@@ -70,6 +70,7 @@ you should probably add to your .ssh/config file:
 	    Hostname localhost
 	    Port 4405
 	    IdentityFile ${dir}/docker/home/.ssh/id_rsa
+	    IdentitiesOnly yes
 	    StrictHostKeyChecking no
 	    UserKnownHostsFile /dev/null
 
